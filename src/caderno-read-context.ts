@@ -217,6 +217,42 @@ export async function loadCadernosContext(
   return { cadernos, byId, engagedSinceMap, passiveCadernoIds, globallyEngaged };
 }
 
+/**
+ * `.in()` paginado. Sem range o PostgREST devolve só 1000 linhas
+ * e as publicações mais novas somem das omissas (tratadas como órfãs).
+ */
+async function fetchAllIn(
+  table: string,
+  select: string,
+  column: string,
+  ids: number[]
+): Promise<Record<string, unknown>[]> {
+  const supabase = db();
+  const pageSize = 1000;
+  const chunkSize = 80;
+  const uniq = [...new Set(ids.filter((id) => Number.isFinite(id)))];
+  const all: Record<string, unknown>[] = [];
+  for (let i = 0; i < uniq.length; i += chunkSize) {
+    const part = uniq.slice(i, i + chunkSize);
+    let from = 0;
+    for (;;) {
+      const { data, error } = await supabase
+        .from(table)
+        .select(select)
+        .in(column, part)
+        .order("id", { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      const rows = (data ?? []) as unknown as Record<string, unknown>[];
+      all.push(...rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+      if (from > 200000) break;
+    }
+  }
+  return all;
+}
+
 /** Bulk de questões publicadas dos cadernos. */
 export async function loadPublishedQuestionsContext(
   cadernoIds: number[]
@@ -228,15 +264,17 @@ export async function loadPublishedQuestionsContext(
   };
   if (cadernoIds.length === 0) return empty;
 
-  const supabase = db();
-  const { data, error } = await supabase
-    .from("caderno_questions")
-    .select("caderno_id, published_question_id, published_at")
-    .in("caderno_id", cadernoIds)
-    .not("published_question_id", "is", null);
-
-  if (error) {
-    throw new Error(`Erro ao listar publicações: ${error.message}`);
+  let data: Record<string, unknown>[];
+  try {
+    data = await fetchAllIn(
+      "caderno_questions",
+      "caderno_id, published_question_id, published_at",
+      "caderno_id",
+      cadernoIds
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String((error as { message?: string }).message || error);
+    throw new Error(`Erro ao listar publicações: ${message}`);
   }
 
   const rows: PublishedQuestionPub[] = [];
@@ -326,22 +364,24 @@ export async function loadQueueContext(
   };
   if (cadernoIds.length === 0) return empty;
 
-  const supabase = db();
-  let q = supabase
-    .from("caderno_send_queue")
-    .select("caderno_id, published_question_id, planned_day_iso, released_at, slot_index")
-    .in("caderno_id", cadernoIds);
-
-  if (dayIsos && dayIsos.length > 0) {
-    q = q.in("planned_day_iso", dayIsos);
-  }
-
-  const { data, error } = await q;
-  if (error) {
-    const msg = error.message.toLowerCase();
+  let data: Record<string, unknown>[] = [];
+  try {
+    data = await fetchAllIn(
+      "caderno_send_queue",
+      "caderno_id, published_question_id, planned_day_iso, released_at, slot_index",
+      "caderno_id",
+      cadernoIds
+    );
+  } catch (error) {
+    const msg = String((error as { message?: string }).message || error).toLowerCase();
     if (msg.includes("relation") && msg.includes("does not exist")) return empty;
     if (msg.includes("released_at") && msg.includes("does not exist")) return empty;
-    throw new Error(`Erro ao listar fila: ${error.message}`);
+    throw new Error(`Erro ao listar fila: ${msg}`);
+  }
+
+  if (dayIsos && dayIsos.length > 0) {
+    const allow = new Set(dayIsos);
+    data = data.filter((row) => allow.has(String(row.planned_day_iso || "")));
   }
 
   const rows: QueueItemLite[] = [];

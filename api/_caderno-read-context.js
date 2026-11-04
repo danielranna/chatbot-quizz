@@ -3,7 +3,7 @@
  * Omissas / atrasadas / semana / mês só COMPÕEM estes loaders.
  */
 const { dateIsoInTimezone, publishedDayIso, weekDayIsos, monthDayIsos, formatDayLabelPt } = require("./_schedule.js");
-const { fetchAllEq } = require("./_lib.js");
+const { fetchAllEq, fetchAllIn } = require("./_lib.js");
 
 const ECONOMY_TZ = "America/Sao_Paulo";
 const WEEKDAY_LABELS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
@@ -120,12 +120,13 @@ async function loadPublishedQuestionsContext(supabase, cadernoIds) {
   const empty = { rows: [], byCaderno: new Map(), allPublishedIds: new Set() };
   if (!cadernoIds.length) return empty;
 
-  const { data, error } = await supabase
-    .from("caderno_questions")
-    .select("caderno_id, published_question_id, published_at")
-    .in("caderno_id", cadernoIds)
-    .not("published_question_id", "is", null);
-  if (error) throw error;
+  const data = await fetchAllIn(
+    supabase,
+    "caderno_questions",
+    "caderno_id, published_question_id, published_at",
+    "caderno_id",
+    cadernoIds
+  );
 
   const rows = [];
   const byCaderno = new Map();
@@ -184,18 +185,24 @@ async function loadQueueContext(supabase, cadernoIds, dayIsos) {
   };
   if (!cadernoIds.length) return empty;
 
-  let q = supabase
-    .from("caderno_send_queue")
-    .select("caderno_id, published_question_id, planned_day_iso, released_at, slot_index")
-    .in("caderno_id", cadernoIds);
-  if (dayIsos && dayIsos.length) q = q.in("planned_day_iso", dayIsos);
-
-  const { data, error } = await q;
-  if (error) {
-    const msg = String(error.message || "").toLowerCase();
+  let data;
+  try {
+    data = await fetchAllIn(
+      supabase,
+      "caderno_send_queue",
+      "caderno_id, published_question_id, planned_day_iso, released_at, slot_index",
+      "caderno_id",
+      cadernoIds
+    );
+  } catch (error) {
+    const msg = String(error.message || error).toLowerCase();
     if (msg.includes("relation") && msg.includes("does not exist")) return empty;
     if (msg.includes("released_at")) return empty;
     throw error;
+  }
+  if (dayIsos && dayIsos.length) {
+    const allow = new Set(dayIsos);
+    data = data.filter((row) => allow.has(String(row.planned_day_iso || "")));
   }
 
   const rows = [];
