@@ -4,7 +4,7 @@ import P from "pino";
 import { downloadMediaMessage, WAMessage, WASocket } from "@whiskeysockets/baileys";
 import { extractText } from "./message-utils";
 
-const require = createRequire(__filename);
+const nodeRequire = createRequire(__filename);
 const GASTOS_ROOT = process.env.GASTOS_ROOT || "/opt/gastos";
 const STATE_FILE = `${GASTOS_ROOT}/bot/state.json`;
 
@@ -17,7 +17,7 @@ type GastosHandle = (input: {
   name: string;
 }) => Promise<{ handled: boolean; text: string }>;
 
-const { createGastos } = require(`${GASTOS_ROOT}/bot/src/gastos`) as {
+const { createGastos } = nodeRequire(`${GASTOS_ROOT}/bot/src/gastos`) as {
   createGastos: (options?: { env?: Record<string, string | undefined> }) => { handle: GastosHandle };
 };
 
