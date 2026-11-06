@@ -102,6 +102,7 @@ import {
   startFlashcardsBot,
   stopFlashcardsBot
 } from "./flashcards/bot";
+import { tryHandleGastos } from "./gastos-bridge";
 import {
   flushEconomyOutbox,
   handleEconomyCommand,
@@ -1486,6 +1487,11 @@ async function startBot(): Promise<void> {
 
         let quizModePrivateEnabled = false;
         if (fromPrivate) {
+          if (!msg.key.fromMe) {
+            const gastosHandled = await tryHandleGastos(sock, msg, remoteJid);
+            if (gastosHandled) continue;
+          }
+
           const flashcardsHandled = await handleFlashcardsPrivateMessage(
             sock,
             remoteJid,
