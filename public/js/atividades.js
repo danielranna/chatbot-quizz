@@ -55,6 +55,11 @@
   let advancing = false;
   let aiPollTimer = 0;
   let refreshSeq = 0;
+  let histOutcome = "all";
+  let histOffset = 0;
+  let histItems = [];
+  let histHasMore = false;
+  let erradasBusy = false;
 
   const timer = quizUi.createTimer({
     timer: $("q-timer"),
@@ -587,7 +592,7 @@
     }
   }
 
-  function switchView(next) {
+  function paintView(next) {
     view = next;
     document.querySelectorAll(".atv-tab").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.view === next);
@@ -595,6 +600,16 @@
     $("panel-day").classList.toggle("hidden", next !== "day");
     $("panel-week").classList.toggle("hidden", next !== "week");
     $("panel-month").classList.toggle("hidden", next !== "month");
+    $("panel-historico").classList.toggle("hidden", next !== "historico");
+    if (next === "historico") {
+      history.replaceState(null, "", "#historico");
+    } else if (location.hash === "#historico") {
+      history.replaceState(null, "", location.pathname + location.search);
+    }
+  }
+
+  function switchView(next) {
+    paintView(next);
     selectedDays.clear();
     updateSelectedLabels();
     void refresh();
@@ -613,7 +628,8 @@
     try {
       if (view === "day") await loadDay(seq);
       else if (view === "week") await loadWeek();
-      else await loadMonth();
+      else if (view === "month") await loadMonth();
+      else if (view === "historico") await loadHistorico(seq, { append: false });
       if (seq !== refreshSeq) return;
       showStatus("");
     } catch (e) {
@@ -832,8 +848,205 @@
     $("atv-main").classList.toggle("hidden", on || !userJid);
   }
 
+  function erradasStorageKey() {
+    return `papaVagasErradas:${userJid}`;
+  }
+
+  function readErradasSession() {
+    if (!userJid) return null;
+    try {
+      const raw = localStorage.getItem(erradasStorageKey());
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data || !data.token) return null;
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeErradasSession(data) {
+    localStorage.setItem(erradasStorageKey(), JSON.stringify(data));
+  }
+
+  function syncContinueErradas() {
+    const btn = $("btn-continuar-erradas");
+    if (!btn) return;
+    const saved = readErradasSession();
+    btn.classList.toggle("hidden", !saved);
+    if (saved && saved.name) btn.textContent = "Continuar última";
+  }
+
+  function letterLabel(letter, questionType) {
+    const L = String(letter || "").toUpperCase();
+    if (questionType === "true_false") {
+      if (L === "C") return "Certo";
+      if (L === "E") return "Errado";
+    }
+    return L || "—";
+  }
+
+  function formatWhen(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  }
+
+  function renderHistList() {
+    const list = $("hist-list");
+    if (!list) return;
+    if (!histItems.length) {
+      const empty =
+        histOutcome === "wrong"
+          ? "Nenhuma errada nesse filtro."
+          : histOutcome === "correct"
+            ? "Nenhuma certa nesse filtro."
+            : "Você ainda não tem questão resolvida por aqui.";
+      list.innerHTML = `<p class="atv-muted">${empty}</p>`;
+      return;
+    }
+    list.innerHTML = histItems
+      .map((item) => {
+        const ok = Boolean(item.correct);
+        const meta = [
+          `Marcou ${letterLabel(item.yourLetter, item.questionType)}`,
+          item.answerKey ? `gabarito ${letterLabel(item.answerKey, item.questionType)}` : "",
+          item.subject || "",
+          item.cadernoName || ""
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        return `<article class="hist-item ${ok ? "is-ok" : "is-wrong"}">
+          <div class="hist-item-top">
+            <span class="hist-badge ${ok ? "ok" : "bad"}">${ok ? "Acertou" : "Errou"}</span>
+            <span class="hist-when">${esc(formatWhen(item.answeredAt))}</span>
+            <span class="hist-id">#${esc(item.shortId || item.questionId)}</span>
+          </div>
+          <p class="hist-snippet">${esc(item.snippet || "Questão sem enunciado")}</p>
+          <p class="hist-meta">${esc(meta)}</p>
+        </article>`;
+      })
+      .join("");
+  }
+
+  async function loadHistorico(seq, opts) {
+    const append = Boolean(opts && opts.append);
+    if (!append) {
+      histOffset = 0;
+      histItems = [];
+    }
+    const qs = new URLSearchParams({
+      view: "historico",
+      userJid,
+      outcome: histOutcome,
+      offset: String(append ? histOffset : 0),
+      limit: "40"
+    });
+    const data = await fetchJson(API.atividades(qs.toString()));
+    if (seq != null && seq !== refreshSeq) return;
+    const page = data.items || [];
+    histItems = append ? histItems.concat(page) : page;
+    histOffset = histItems.length;
+    histHasMore = Boolean(data.hasMore);
+    const who = userName ? ` de ${userName}` : "";
+    $("hist-subtitle").textContent = `Questões resolvidas${who}.`;
+    $("hist-counts").textContent = `${data.total || 0} resolvidas · ${data.correctCount || 0} certas · ${
+      data.wrongCount || 0
+    } erradas`;
+    renderHistList();
+    $("btn-hist-more").classList.toggle("hidden", !histHasMore);
+    syncContinueErradas();
+  }
+
+  function openErradasModal() {
+    const status = $("erradas-modal-status");
+    if (status) status.textContent = "";
+    const input = $("erradas-days");
+    if (input) input.value = "7";
+    const confirm = $("erradas-confirm");
+    if (confirm) confirm.disabled = false;
+    $("erradas-modal").classList.remove("hidden");
+    if (input) input.focus();
+    if (input) input.select();
+  }
+
+  function closeErradasModal() {
+    $("erradas-modal").classList.add("hidden");
+  }
+
+  async function confirmErradas() {
+    if (erradasBusy) return;
+    const input = $("erradas-days");
+    const days = Number(input && input.value);
+    const status = $("erradas-modal-status");
+    if (!Number.isFinite(days) || days < 1) {
+      if (status) status.textContent = "Informe um número de dias a partir de 1.";
+      return;
+    }
+    erradasBusy = true;
+    const confirm = $("erradas-confirm");
+    if (confirm) confirm.disabled = true;
+    if (status) status.textContent = "Montando o caderno…";
+    try {
+      const data = await fetchJson(API.post, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "erradas",
+          userJid,
+          userName,
+          days: Math.round(days)
+        })
+      });
+      if (!data.token) {
+        if (status) status.textContent = data.message || "Nenhuma errada nesse período.";
+        if (confirm) confirm.disabled = false;
+        return;
+      }
+      writeErradasSession({
+        token: data.token,
+        cadernoId: data.cadernoId,
+        name: data.name || ""
+      });
+      closeErradasModal();
+      showStatus(data.message || "");
+      await openQuiz(data.token);
+    } catch (e) {
+      if (status) status.textContent = e.message || "Erro ao criar o caderno";
+      if (confirm) confirm.disabled = false;
+    } finally {
+      erradasBusy = false;
+    }
+  }
+
+  async function continuarErradas() {
+    const saved = readErradasSession();
+    if (!saved) return;
+    showStatus("Abrindo caderno…");
+    try {
+      await fetchJson(API.session(saved.token));
+      showStatus("");
+      await openQuiz(saved.token);
+    } catch (e) {
+      localStorage.removeItem(erradasStorageKey());
+      syncContinueErradas();
+      showStatus(e.message || "Essa sessão expirou. Crie de novo em Fazer erradas.");
+    }
+  }
+
   async function openQuiz(t) {
     cancelScheduledResults();
+    const back = $("btn-close-quiz");
+    if (back) {
+      back.textContent = view === "historico" ? "← Voltar ao histórico" : "← Voltar ao calendário";
+    }
     token = t;
     pending = [];
     index = 0;
@@ -1282,6 +1495,7 @@
       showStatus(e.message || "Erro ao carregar membros");
     }
 
+    if (location.hash === "#historico") paintView("historico");
     setGate(Boolean(userJid));
     if (userJid) void refresh();
 
@@ -1304,6 +1518,41 @@
 
     $("btn-responder-hoje").addEventListener("click", () => startSession("hoje"));
     $("btn-atrasadas").addEventListener("click", () => startSession("atrasadas"));
+    $("btn-fazer-erradas").addEventListener("click", () => openErradasModal());
+    $("btn-continuar-erradas").addEventListener("click", () => continuarErradas());
+    $("btn-hist-more").addEventListener("click", () => {
+      void loadHistorico(refreshSeq, { append: true }).catch((e) => {
+        showStatus(e.message || "Erro ao carregar mais");
+      });
+    });
+    document.querySelectorAll(".hist-filter").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        histOutcome = btn.dataset.outcome || "all";
+        document.querySelectorAll(".hist-filter").forEach((b) => {
+          b.classList.toggle("active", b === btn);
+        });
+        if (view === "historico") void refresh();
+      });
+    });
+    $("erradas-cancel").addEventListener("click", () => closeErradasModal());
+    $("erradas-confirm").addEventListener("click", () => confirmErradas());
+    $("erradas-days").addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        void confirmErradas();
+      }
+    });
+    $("erradas-modal").addEventListener("click", (ev) => {
+      if (ev.target === $("erradas-modal")) closeErradasModal();
+    });
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape" && !$("erradas-modal").classList.contains("hidden")) {
+        closeErradasModal();
+      }
+    });
+    window.addEventListener("hashchange", () => {
+      if (location.hash === "#historico" && view !== "historico") switchView("historico");
+    });
     $("btn-adiantar-week").addEventListener("click", () => adiantarSelected());
     $("btn-adiantar-month").addEventListener("click", () => adiantarSelected());
 

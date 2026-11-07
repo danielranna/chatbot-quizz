@@ -44,8 +44,8 @@
         <div>
           <h1>Cadernos</h1>
           <p>
-            Gerencie cadernões automáticos do Tec Concursos — agenda, progresso, engajados e envio. O grupo recebe o
-            ritmo; enunciados vão por <code>/omissas</code>.
+            Gerencie cadernos automáticos — PDF do Tec ou questões pedidas a uma IA. O grupo recebe o ritmo;
+            enunciados vão por <code>/omissas</code>.
           </p>
         </div>
         <div class="cb-hero-stats" id="cb-summary" aria-live="polite"></div>
@@ -103,22 +103,46 @@
         <div class="modal-header wizard-header">
           <div>
             <h3 id="caderno-add-title">Importar caderno</h3>
-            <p class="report-sub" id="wizard-step-caption">Passo 1 de 5 — PDF Tec ou Markdown de IA</p>
+            <p class="report-sub" id="wizard-step-caption">Passo 1 de 6 — De onde vêm as questões</p>
           </div>
           <button type="button" id="caderno-add-close" class="btn-close" aria-label="Fechar">×</button>
         </div>
 
         <ol class="wizard-steps" id="wizard-steps" aria-label="Etapas">
-          <li class="active" data-step-dot="1">TEC</li>
-          <li data-step-dot="2">PDF</li>
+          <li class="active" data-step-dot="0">Origem</li>
+          <li data-step-dot="1">Formato</li>
+          <li data-step-dot="2">Arquivo</li>
           <li data-step-dot="3">Básicas</li>
           <li data-step-dot="4">Avançadas</li>
           <li data-step-dot="5">Concluir</li>
         </ol>
 
         <div class="caderno-form wizard-body">
+          <section class="wizard-panel active" data-wizard-step="0">
+            <h4 class="wizard-panel-title">De onde vêm as questões?</h4>
+            <p class="report-sub">
+              Escolha a origem. Nome, agenda e envio são os mesmos nos dois caminhos.
+            </p>
+            <div class="wizard-source-grid">
+              <label class="wizard-source-card">
+                <input type="radio" name="caderno-source" value="tec" />
+                <span>
+                  <strong>Caderno do TEC</strong>
+                  <small>PDF do Tec Concursos, com o gabarito impresso no fim do caderno.</small>
+                </span>
+              </label>
+              <label class="wizard-source-card">
+                <input type="radio" name="caderno-source" value="ia" />
+                <span>
+                  <strong>Questões de IA</strong>
+                  <small>Peça para uma IA escrever as questões e cole aqui o Markdown que ela devolver.</small>
+                </span>
+              </label>
+            </div>
+          </section>
+
           <!-- Step 1: TEC warning -->
-          <section class="wizard-panel active" data-wizard-step="1">
+          <section class="wizard-panel" data-wizard-step="1" data-wizard-source="tec">
             <h4 class="wizard-panel-title">Gabarito no fim do caderno</h4>
             <p class="report-sub">
               No TEC Concursos, ao imprimir o PDF, em <strong>Imprimir gabaritos</strong> escolha
@@ -135,8 +159,118 @@
             </figure>
           </section>
 
+          <section class="wizard-panel" data-wizard-step="1" data-wizard-source="ia">
+            <h4 class="wizard-panel-title">Pedir questões para uma IA</h4>
+            <ol class="wizard-howto">
+              <li>Copie o prompt abaixo.</li>
+              <li>Cole no ChatGPT, Claude, Gemini ou outra IA e preencha matéria, quantidade e nível.</li>
+              <li>A IA devolve só o Markdown, no formato do exemplo.</li>
+              <li>Copie a resposta dela e cole no próximo passo.</li>
+            </ol>
+
+            <div class="wizard-copy-row">
+              <h4 class="wizard-panel-title">Prompt</h4>
+              <button type="button" class="btn-tutorial" id="btn-copy-ia-prompt">Copiar prompt</button>
+            </div>
+            <pre class="wizard-prompt" id="ia-prompt">Você escreve questões inéditas de concurso e entrega somente Markdown, neste formato. Não use outro modelo. Não envolva a resposta em ``` e não escreva comentário, explicação ou gabarito comentado.
+
+Cada questão começa com ## Q1, ## Q2, ## Q3… em ordem.
+
+Campos, um por linha, logo abaixo do título:
+tipo: certo_errado
+ou
+tipo: multiple_choice
+gabarito: C
+banca: INÉDITA
+materia: nome da matéria
+tec_id:
+
+Depois uma linha em branco, o enunciado, outra linha em branco e as alternativas.
+
+Se tipo for certo_errado, o gabarito é só C (certo) ou E (errado), e as duas últimas linhas são exatamente:
+Certo
+Errado
+
+Se tipo for multiple_choice, o gabarito é A, B, C, D ou E, e as alternativas são:
+a) texto
+b) texto
+c) texto
+d) texto
+e) texto
+
+O gabarito tem de ser uma das alternativas. Misture os dois tipos, salvo se eu pedir só um.
+
+Pedido desta vez:
+- Matéria: [preencha]
+- Estilo de banca: [preencha ou INÉDITA]
+- Quantidade: [preencha]
+- Nível: [preencha]
+- Foco: [preencha o assunto]
+
+Gere questões novas. Não repita o exemplo que eu vou te mostrar em seguida, se eu colar um.</pre>
+
+            <div class="wizard-copy-row">
+              <h4 class="wizard-panel-title">Exemplo com 4 questões</h4>
+              <button type="button" class="btn-tutorial" id="btn-copy-ia-example">Copiar exemplo</button>
+            </div>
+            <p class="report-sub">
+              Duas de certo ou errado (Q1 e Q2) e duas de múltipla escolha (Q3 e Q4). É assim que o Papa Vagas lê o arquivo.
+            </p>
+            <pre class="wizard-prompt" id="ia-example"># Exemplo — gere questões novas, não copie estas
+
+## Q1
+tipo: certo_errado
+gabarito: C
+banca: INÉDITA
+materia: Direito Administrativo
+
+O princípio da legalidade impede que o administrador público aja sem previsão legal.
+
+Certo
+Errado
+
+## Q2
+tipo: certo_errado
+gabarito: E
+banca: INÉDITA
+materia: Direito Administrativo
+
+O Judiciário pode anular ato discricionário por discordar do mérito administrativo.
+
+Certo
+Errado
+
+## Q3
+tipo: multiple_choice
+gabarito: B
+banca: INÉDITA
+materia: Direito Constitucional
+
+A República Federativa do Brasil é formada pela união indissolúvel:
+
+a) somente dos Municípios
+b) dos Estados, do Distrito Federal e dos Municípios
+c) da União e dos Estados, sem os Municípios
+d) das regiões metropolitanas
+e) dos territórios federais
+
+## Q4
+tipo: multiple_choice
+gabarito: D
+banca: INÉDITA
+materia: Língua Portuguesa
+
+Na frase "Os alunos chegaram cedo", o sujeito é:
+
+a) chegaram cedo
+b) cedo
+c) Os
+d) Os alunos
+e) chegaram</pre>
+          </section>
+
           <!-- Step 2: PDF -->
-          <section class="wizard-panel" data-wizard-step="2">
+          <section class="wizard-panel" data-wizard-step="2" data-wizard-source="tec">
             <h4 class="wizard-panel-title">Enviar o arquivo</h4>
             <p class="report-sub">
               PDF do Tec Concursos (gabarito no fim) <strong>ou</strong> Markdown de questões de IA
@@ -178,6 +312,26 @@ e) alternativa</pre>
               <button type="button" id="btn-caderno-preview" class="btn-tutorial">Pré-visualizar parser</button>
             </div>
             <div id="caderno-preview-box" class="caderno-preview hidden"></div>
+          </section>
+
+          <section class="wizard-panel" data-wizard-step="2" data-wizard-source="ia">
+            <h4 class="wizard-panel-title">Colar o Markdown</h4>
+            <p class="report-sub">
+              Cole a resposta da IA. Se ela vier dentro de <code>```</code>, pode colar assim mesmo.
+              Ou envie o arquivo <code>.md</code>.
+            </p>
+            <label class="report-field">
+              <span>Markdown das questões</span>
+              <textarea id="caderno-md" class="wizard-md-paste" rows="14" spellcheck="false" placeholder="## Q1&#10;tipo: certo_errado&#10;gabarito: C&#10;..."></textarea>
+            </label>
+            <label class="report-field">
+              <span>Ou arquivo .md</span>
+              <input type="file" id="caderno-md-file" accept=".md,text/markdown,text/plain" />
+            </label>
+            <div class="wizard-inline-actions">
+              <button type="button" id="btn-caderno-preview-ia" class="btn-tutorial">Pré-visualizar parser</button>
+            </div>
+            <div id="caderno-preview-box-ia" class="caderno-preview hidden"></div>
           </section>
 
           <!-- Step 3: Basics -->
@@ -226,7 +380,7 @@ e) alternativa</pre>
               <input type="checkbox" id="caderno-random" />
               <span>
                 <strong>Ordem aleatória</strong>
-                <small>Sorteia entre as questões ainda não enviadas. Sem aleatório, segue a ordem do PDF.</small>
+                <small>Sorteia entre as questões ainda não enviadas. Sem aleatório, segue a ordem do arquivo.</small>
               </span>
             </label>
 

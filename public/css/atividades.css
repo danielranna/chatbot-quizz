@@ -151,12 +151,14 @@ body.atv-page {
 
 .atv-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
   margin-bottom: 1rem;
 }
 
 .atv-tab {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 5.6rem;
   border: 1px solid var(--line);
   background: var(--card);
   border-radius: 999px;
@@ -827,4 +829,131 @@ body.atv-page {
     min-width: 0;
     width: 100%;
   }
+}
+
+.hist-counts {
+  margin: 0.85rem 0 0.7rem;
+  font-weight: 700;
+}
+
+.hist-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.hist-filter.active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+
+.hist-actions {
+  margin-top: 0.85rem;
+}
+
+.hist-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.4rem;
+}
+
+.hist-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+  background: #fff;
+}
+
+.hist-item.is-wrong {
+  border-color: rgba(190, 18, 60, 0.28);
+}
+
+.hist-item.is-ok {
+  border-color: rgba(4, 120, 87, 0.28);
+}
+
+.hist-item-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.7rem;
+  margin-bottom: 0.35rem;
+}
+
+.hist-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 0.12rem 0.5rem;
+}
+
+.hist-badge.bad {
+  background: rgba(190, 18, 60, 0.12);
+  color: var(--danger);
+}
+
+.hist-badge.ok {
+  background: rgba(4, 120, 87, 0.12);
+  color: var(--success);
+}
+
+.hist-when,
+.hist-id,
+.hist-meta {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.hist-snippet {
+  margin: 0.15rem 0 0.35rem;
+}
+
+.atv-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  background: rgba(16, 29, 51, 0.46);
+}
+
+.atv-modal-card {
+  width: min(440px, 100%);
+  background: var(--card);
+  border-radius: 16px;
+  padding: 1.15rem 1.2rem 1.2rem;
+  box-shadow: 0 24px 60px rgba(16, 29, 51, 0.28);
+}
+
+.atv-modal-card h2 {
+  font-family: var(--display);
+  margin: 0 0 0.4rem;
+}
+
+.atv-modal-card p {
+  margin: 0 0 0.75rem;
+}
+
+.erradas-days-label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+#erradas-days {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  margin-bottom: 0.45rem;
 }

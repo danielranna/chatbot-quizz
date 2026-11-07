@@ -31,6 +31,7 @@
         </a>
         <nav class="atv-top-links" aria-label="Atalhos">
           <a class="atv-chip" href="/">Quiz</a>
+          <a class="atv-chip" href="#historico">Histórico</a>
           <a class="atv-chip" href="/hub">Hub</a>
           <a class="atv-chip" href="/engajamento">Engajamento</a>
         </nav>
@@ -73,6 +74,7 @@
           <button type="button" class="atv-tab active" data-view="day">Diária</button>
           <button type="button" class="atv-tab" data-view="week">Semanal</button>
           <button type="button" class="atv-tab" data-view="month">Mensal</button>
+          <button type="button" class="atv-tab" data-view="historico">Histórico</button>
         </div>
 
         <div id="atv-status" class="atv-status hidden" role="status"></div>
@@ -153,6 +155,44 @@
             <span id="month-selected-label" class="atv-muted"></span>
           </div>
         </section>
+
+        <section id="panel-historico" class="atv-panel hidden">
+          <div class="atv-panel-head">
+            <h1>Histórico</h1>
+            <p id="hist-subtitle" class="atv-muted">Questões que você já resolveu.</p>
+          </div>
+          <p id="hist-counts" class="hist-counts"></p>
+          <div class="hist-filters" role="group" aria-label="Filtrar resultado">
+            <button type="button" class="atv-btn hist-filter active" data-outcome="all">Todas</button>
+            <button type="button" class="atv-btn hist-filter" data-outcome="wrong">Erradas</button>
+            <button type="button" class="atv-btn hist-filter" data-outcome="correct">Certas</button>
+          </div>
+          <div class="atv-actions hist-actions">
+            <button type="button" class="atv-btn primary" id="btn-fazer-erradas">Fazer erradas</button>
+            <button type="button" class="atv-btn hidden" id="btn-continuar-erradas">Continuar última</button>
+          </div>
+          <div id="hist-list" class="hist-list"></div>
+          <div class="atv-actions">
+            <button type="button" class="atv-btn hidden" id="btn-hist-more">Mostrar mais</button>
+          </div>
+        </section>
+      </div>
+
+      <div id="erradas-modal" class="atv-modal hidden" role="dialog" aria-modal="true" aria-labelledby="erradas-title">
+        <div class="atv-modal-card">
+          <h2 id="erradas-title">Fazer as erradas</h2>
+          <p>
+            Cria um caderno só seu com as questões que você errou nesse período e abre para responder agora.
+          </p>
+          <label class="erradas-days-label" for="erradas-days">Quantos dias para trás</label>
+          <input id="erradas-days" type="number" min="1" max="3650" step="1" value="7" inputmode="numeric" />
+          <p class="atv-muted">7 dias é o padrão, contando hoje. Pode ser 1, 30, 90 ou o que quiser.</p>
+          <p id="erradas-modal-status" class="atv-muted" role="status"></p>
+          <div class="atv-actions">
+            <button type="button" class="atv-btn ghost" id="erradas-cancel">Cancelar</button>
+            <button type="button" class="atv-btn primary" id="erradas-confirm">Criar e responder</button>
+          </div>
+        </div>
       </div>
 
       <section id="atv-quiz-wrap" class="atv-quiz-wrap hidden">

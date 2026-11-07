@@ -570,6 +570,90 @@ body[data-page="cadernos"] .modal-caderno-wizard .wizard-body {
   color: var(--navy, #1e3a5f);
 }
 
+.wizard-source-grid {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.85rem;
+}
+
+.wizard-source-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(61, 48, 36, 0.14);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.wizard-source-card:has(input:checked) {
+  border-color: rgba(30, 58, 95, 0.4);
+  background: rgba(30, 58, 95, 0.04);
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+}
+
+.wizard-source-card strong {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.wizard-source-card small {
+  display: block;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.wizard-howto {
+  margin: 0 0 0.9rem;
+  padding-left: 1.2rem;
+}
+
+.wizard-howto li {
+  margin: 0.25rem 0;
+}
+
+.wizard-copy-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.wizard-copy-row .wizard-panel-title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.wizard-prompt {
+  margin: 0.4rem 0 0;
+  padding: 0.85rem 0.95rem;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: 12px;
+  background: #101d33;
+  color: #f8fafc;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.wizard-md-paste {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 220px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  border-radius: 12px;
+  border: 1px solid rgba(61, 48, 36, 0.16);
+  padding: 0.75rem 0.8rem;
+}
+
 .wizard-tec-figure {
   margin: 0.85rem 0 0;
   padding: 0;
@@ -696,6 +780,10 @@ body[data-page="cadernos"] .modal-caderno-wizard .wizard-body {
   position: sticky;
   bottom: 0;
   background: #fff;
+}
+
+.wizard-nav [hidden] {
+  display: none !important;
 }
 
 .wizard-nav-spacer {

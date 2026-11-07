@@ -91,6 +91,12 @@
     cadernoAddClose: document.getElementById("caderno-add-close"),
     cadernoName: document.getElementById("caderno-name"),
     cadernoPdf: document.getElementById("caderno-pdf"),
+    cadernoMd: document.getElementById("caderno-md"),
+    cadernoMdFile: document.getElementById("caderno-md-file"),
+    cadernoPreviewBoxIa: document.getElementById("caderno-preview-box-ia"),
+    btnCadernoPreviewIa: document.getElementById("btn-caderno-preview-ia"),
+    btnCopyIaPrompt: document.getElementById("btn-copy-ia-prompt"),
+    btnCopyIaExample: document.getElementById("btn-copy-ia-example"),
     cadernoPerDay: document.getElementById("caderno-per-day"),
     cadernoTime: document.getElementById("caderno-time"),
     cadernoEndTime: document.getElementById("caderno-end-time"),
@@ -183,14 +189,8 @@
   let cadernoEngagementEditId = null;
   /** Seleção provisória de engajados/passivos no wizard (antes do caderno existir). */
   let cadernoAddEngagementDraft = [];
-  let wizardStep = 1;
-  const WIZARD_CAPTIONS = {
-    1: "Passo 1 de 5 — Preparar PDF no TEC",
-    2: "Passo 2 de 5 — Enviar o PDF",
-    3: "Passo 3 de 5 — Configurações básicas",
-    4: "Passo 4 de 5 — Configurações avançadas",
-    5: "Passo 5 de 5 — Conferir e salvar"
-  };
+  let wizardStep = 0;
+  let wizardSource = "";
 
   async function fetchJson(url, options = {}) {
     const headers = { ...(options.headers || {}) };
@@ -1888,23 +1888,105 @@
     if (sendWrap) sendWrap.classList.toggle("hidden", priv);
   }
 
-  function setWizardStep(step) {
-    wizardStep = Math.max(1, Math.min(5, step));
-    document.querySelectorAll("[data-wizard-step]").forEach((panel) => {
-      panel.classList.toggle("active", Number(panel.dataset.wizardStep) === wizardStep);
-    });
-    if (els.wizardSteps) {
-      els.wizardSteps.querySelectorAll("[data-step-dot]").forEach((dot) => {
-        const n = Number(dot.dataset.stepDot);
-        dot.classList.toggle("active", n === wizardStep);
-        dot.classList.toggle("done", n < wizardStep);
-      });
+  function wizardDotLabels() {
+    if (wizardSource === "ia") return ["Origem", "IA", "Markdown", "Básicas", "Avançadas", "Concluir"];
+    if (wizardSource === "tec") return ["Origem", "TEC", "PDF", "Básicas", "Avançadas", "Concluir"];
+    return ["Origem", "Formato", "Arquivo", "Básicas", "Avançadas", "Concluir"];
+  }
+
+  function wizardCaption(step) {
+    const labels =
+      wizardSource === "ia"
+        ? [
+            "De onde vêm as questões",
+            "Pedir questões para a IA",
+            "Colar o Markdown",
+            "Configurações básicas",
+            "Configurações avançadas",
+            "Conferir e salvar"
+          ]
+        : [
+            "De onde vêm as questões",
+            "Preparar PDF no TEC",
+            "Enviar o PDF",
+            "Configurações básicas",
+            "Configurações avançadas",
+            "Conferir e salvar"
+          ];
+    return `Passo ${step + 1} de 6 — ${labels[step] || ""}`;
+  }
+
+  function paintWizardDots() {
+    if (!els.wizardSteps) return;
+    const labels = wizardDotLabels();
+    els.wizardSteps.innerHTML = labels
+      .map((label, n) => {
+        const cls = n === wizardStep ? "active" : n < wizardStep ? "done" : "";
+        return `<li class="${cls}" data-step-dot="${n}">${esc(label)}</li>`;
+      })
+      .join("");
+  }
+
+  function unwrapMdFence(raw) {
+    let text = String(raw || "").replace(/\r\n?/g, "\n").trim();
+    const fenced = text.match(/^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/i);
+    if (fenced) text = fenced[1].trim();
+    return text;
+  }
+
+  function pastedIaMarkdown() {
+    if (wizardSource !== "ia" || !els.cadernoMd) return "";
+    return unwrapMdFence(els.cadernoMd.value);
+  }
+
+  function iaMarkdownFile() {
+    if (wizardSource !== "ia" || !els.cadernoMdFile || !els.cadernoMdFile.files) return null;
+    return els.cadernoMdFile.files[0] || null;
+  }
+
+  async function copyWizardText(text, button) {
+    const value = String(text || "");
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        throw new Error("clipboard");
+      }
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = value;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.left = "-9999px";
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
     }
-    if (els.wizardStepCaption) els.wizardStepCaption.textContent = WIZARD_CAPTIONS[wizardStep] || "";
-    if (els.wizardPrev) els.wizardPrev.hidden = wizardStep <= 1;
+    if (!button) return;
+    const previous = button.textContent;
+    button.textContent = "Copiado";
+    window.setTimeout(() => {
+      button.textContent = previous;
+    }, 1600);
+  }
+
+  function setWizardStep(step) {
+    wizardStep = Math.max(0, Math.min(5, step));
+    document.querySelectorAll("[data-wizard-step]").forEach((panel) => {
+      const n = Number(panel.dataset.wizardStep);
+      const source = panel.dataset.wizardSource || "";
+      const sourceOk = !source || source === wizardSource;
+      panel.classList.toggle("active", n === wizardStep && sourceOk);
+    });
+    paintWizardDots();
+    if (els.wizardStepCaption) els.wizardStepCaption.textContent = wizardCaption(wizardStep);
+    if (els.wizardPrev) els.wizardPrev.hidden = wizardStep <= 0;
     if (els.wizardNext) {
       els.wizardNext.hidden = wizardStep >= 5;
-      els.wizardNext.textContent = wizardStep === 1 ? "Entendi, continuar" : "Continuar";
+      if (wizardStep === 1 && wizardSource === "tec") els.wizardNext.textContent = "Entendi, continuar";
+      else if (wizardStep === 1 && wizardSource === "ia") els.wizardNext.textContent = "Colar o Markdown";
+      else els.wizardNext.textContent = "Continuar";
     }
     if (wizardStep === 3) syncCadernoAddSendTimes(true);
     if (wizardStep === 4) {
@@ -1921,7 +2003,27 @@
   }
 
   function validateWizardStep(step) {
-    if (step === 2) {
+    if (step === 0) {
+      if (wizardSource !== "tec" && wizardSource !== "ia") {
+        if (els.cadernoAddStatus) els.cadernoAddStatus.textContent = "Escolha caderno do TEC ou questões de IA.";
+        return false;
+      }
+    }
+    if (step === 2 && wizardSource === "ia") {
+      const pasted = pastedIaMarkdown();
+      const file = iaMarkdownFile();
+      if (!pasted && !file) {
+        if (els.cadernoAddStatus)
+          els.cadernoAddStatus.textContent = "Cole o Markdown da IA ou envie o arquivo .md.";
+        return false;
+      }
+      if (pasted && !/^##\s+Q\d+/im.test(pasted)) {
+        if (els.cadernoAddStatus)
+          els.cadernoAddStatus.textContent =
+            "Não achei ## Q1, ## Q2… Cole o Markdown no formato do exemplo.";
+        return false;
+      }
+    } else if (step === 2) {
       const file = els.cadernoPdf && els.cadernoPdf.files && els.cadernoPdf.files[0];
       if (!file) {
         if (els.cadernoAddStatus) els.cadernoAddStatus.textContent = "Selecione o PDF do TEC para continuar.";
@@ -1983,7 +2085,11 @@
       form.deliveryMode === "private"
         ? "Privado (DM)"
         : "Coletivo (Diário + /omissas)";
-    const fileName = form.file && form.file.name ? form.file.name : "—";
+    const fileName = form.markdownText
+      ? "Markdown colado"
+      : form.file && form.file.name
+        ? form.file.name
+        : "—";
     const engaged = cadernoAddEngagementDraft.filter((m) => m.engaged).length;
     const passive = cadernoAddEngagementDraft.filter((m) => m.passive).length;
     const privCount = (form.privateRecipients || []).filter((r) => r.active !== false).length;
@@ -1994,7 +2100,8 @@
     els.wizardSummary.innerHTML = `
       <dl>
         <div><dt>Nome</dt><dd>${esc(form.name || "—")}</dd></div>
-        <div><dt>PDF</dt><dd>${esc(fileName)}</dd></div>
+        <div><dt>Origem</dt><dd>${form.source === "ia" ? "Questões de IA" : "Caderno do TEC"}</dd></div>
+        <div><dt>${form.source === "ia" ? "Markdown" : "PDF"}</dt><dd>${esc(fileName)}</dd></div>
         <div><dt>Envio</dt><dd>${esc(mode)}</dd></div>
         <div><dt>Q/dia</dt><dd>${esc(String(form.schedule.questionsPerDay))}</dd></div>
         <div><dt>Horários</dt><dd>${esc(
@@ -2606,7 +2713,7 @@
     const list = getFilteredCadernos();
     if (!cadernosCache.length) {
       els.cadernosList.innerHTML = IS_CADERNOS_PAGE
-        ? `<li class="cb-empty"><strong>Nenhum caderno ainda</strong>Clique em “Importar caderno” para enviar um PDF do Tec Concursos.</li>`
+        ? `<li class="cb-empty"><strong>Nenhum caderno ainda</strong>Clique em “Importar caderno” para enviar um PDF do Tec ou um Markdown de IA.</li>`
         : '<li class="engagement-empty">Nenhum caderno cadastrado. Clique em "Importar caderno" para enviar um PDF.</li>';
       return;
     }
@@ -2863,8 +2970,12 @@
       deliveryMode === "private"
         ? privateRecipients.find((r) => r.active !== false && r.userJid)?.userJid || null
         : null;
+    const markdownText = pastedIaMarkdown();
+    const iaFile = iaMarkdownFile();
     return {
-      file,
+      file: wizardSource === "ia" ? (markdownText ? null : iaFile) : file,
+      markdownText,
+      source: wizardSource,
       name,
       deliveryMode,
       createdByJid,
@@ -2884,10 +2995,13 @@
   }
 
   function renderCadernoPreview(result) {
-    if (!els.cadernoPreviewBox) return;
+    const boxes = [els.cadernoPreviewBox, els.cadernoPreviewBoxIa].filter(Boolean);
+    if (!boxes.length) return;
     if (!result) {
-      els.cadernoPreviewBox.classList.add("hidden");
-      els.cadernoPreviewBox.innerHTML = "";
+      boxes.forEach((box) => {
+        box.classList.add("hidden");
+        box.innerHTML = "";
+      });
       return;
     }
     const summary = result.summary || {};
@@ -2928,15 +3042,27 @@
       );
       lines.push(`<div><a href="${escAttr(first.tecUrl)}" target="_blank" rel="noreferrer">${esc(first.tecUrl)}</a></div>`);
     }
-    els.cadernoPreviewBox.innerHTML = lines.join("");
-    els.cadernoPreviewBox.classList.remove("hidden");
+    const html = lines.join("");
+    boxes.forEach((box) => {
+      box.innerHTML = html;
+      box.classList.remove("hidden");
+    });
   }
 
   async function callCadernoUpload(extra) {
     const form = getCadernoFormPayload();
-    if (!form.file) throw new Error("Selecione um PDF do Tec ou um arquivo Markdown (.md).");
+    if (!form.file && !form.markdownText) {
+      throw new Error(
+        form.source === "ia"
+          ? "Cole o Markdown da IA ou envie o arquivo .md."
+          : "Selecione um PDF do Tec ou um arquivo Markdown (.md)."
+      );
+    }
     if (!extra.previewOnly && !form.name) throw new Error("Informe um nome para o caderno.");
-    const isMarkdown = /\.md$/i.test(form.file.name || "") || /markdown|text\/plain/i.test(form.file.type || "");
+    const isMarkdown =
+      Boolean(form.markdownText) ||
+      (form.file &&
+        (/\.md$/i.test(form.file.name || "") || /markdown|text\/plain/i.test(form.file.type || "")));
     const body = {
       name: form.name,
       schedule: form.schedule,
@@ -2944,8 +3070,10 @@
       createdByJid: form.createdByJid,
       ...extra
     };
-    if (isMarkdown) {
-      body.markdown = await form.file.text();
+    if (form.markdownText) {
+      body.markdown = form.markdownText;
+    } else if (isMarkdown) {
+      body.markdown = unwrapMdFence(await form.file.text());
     } else {
       body.pdfBase64 = await readFileAsDataUrl(form.file);
     }
@@ -3219,6 +3347,12 @@
     if (!els.cadernoAddOverlay) return;
     if (els.cadernoName) els.cadernoName.value = "";
     if (els.cadernoPdf) els.cadernoPdf.value = "";
+    if (els.cadernoMd) els.cadernoMd.value = "";
+    if (els.cadernoMdFile) els.cadernoMdFile.value = "";
+    wizardSource = "";
+    document.querySelectorAll('input[name="caderno-source"]').forEach((input) => {
+      input.checked = false;
+    });
     if (els.cadernoPerDay) els.cadernoPerDay.value = "3";
     if (els.cadernoTime) els.cadernoTime.value = "07:00";
     if (els.cadernoEndTime) els.cadernoEndTime.value = "07:00";
@@ -3235,7 +3369,7 @@
     syncCadernoAddPrivatePanel();
     if (els.cadernoAddStatus) els.cadernoAddStatus.textContent = "";
     renderCadernoPreview(null);
-    setWizardStep(1);
+    setWizardStep(0);
     els.cadernoAddOverlay.classList.add("open");
     els.cadernoAddOverlay.setAttribute("aria-hidden", "false");
   }
@@ -3474,6 +3608,25 @@
     });
   }
   if (els.btnCadernoPreview) els.btnCadernoPreview.addEventListener("click", onCadernoPreview);
+  if (els.btnCadernoPreviewIa) els.btnCadernoPreviewIa.addEventListener("click", onCadernoPreview);
+  document.querySelectorAll('input[name="caderno-source"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      wizardSource = input.value === "ia" ? "ia" : "tec";
+      if (wizardStep === 0) setWizardStep(0);
+    });
+  });
+  if (els.btnCopyIaPrompt) {
+    els.btnCopyIaPrompt.addEventListener("click", () => {
+      const node = document.getElementById("ia-prompt");
+      void copyWizardText(node ? node.textContent : "", els.btnCopyIaPrompt);
+    });
+  }
+  if (els.btnCopyIaExample) {
+    els.btnCopyIaExample.addEventListener("click", () => {
+      const node = document.getElementById("ia-example");
+      void copyWizardText(node ? node.textContent : "", els.btnCopyIaExample);
+    });
+  }
   if (els.btnCadernoSave) els.btnCadernoSave.addEventListener("click", () => onCadernoSave(false));
   if (els.btnCadernoSaveActivate)
     els.btnCadernoSaveActivate.addEventListener("click", () => onCadernoSave(true));
